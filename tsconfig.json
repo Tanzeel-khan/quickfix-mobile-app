@@ -1,6 +1,16 @@
 {
   "extends": "@react-native/typescript-config",
   "compilerOptions": {
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
     "types": ["jest"]
   },
   "include": ["**/*.ts", "**/*.tsx"],

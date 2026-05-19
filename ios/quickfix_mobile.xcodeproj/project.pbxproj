@@ -8,21 +8,27 @@
 
 /* Begin PBXBuildFile section */
 		0C80B921A6F3F58F76C31292 /* libPods-quickfix_mobile.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5DCACB8F33CDC322A6C60F78 /* libPods-quickfix_mobile.a */; };
+		1369665E64C547659A962DE0 /* Inter-VariableFont_opsz,wght.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 0B3AF4F7F31B4B39BA058BD6 /* Inter-VariableFont_opsz,wght.ttf */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		2784DFB7C606EF09EAAF1562 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
+		536B5C2E697D45E8A1958F36 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 78977536FDC04525B24B55F5 /* README.md */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
+		C5D89590B02441959BDDCF32 /* NotoNastaliqUrdu-VariableFont_wght.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 57EC88DB29EC493D8AE926EB /* NotoNastaliqUrdu-VariableFont_wght.ttf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		0B3AF4F7F31B4B39BA058BD6 /* Inter-VariableFont_opsz,wght.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Inter-VariableFont_opsz,wght.ttf"; path = "../src/assets/fonts/Inter-VariableFont_opsz,wght.ttf"; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* quickfix_mobile.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = quickfix_mobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = quickfix_mobile/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = quickfix_mobile/Info.plist; sourceTree = "<group>"; };
 		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = quickfix_mobile/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		3B4392A12AC88292D35C810B /* Pods-quickfix_mobile.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-quickfix_mobile.debug.xcconfig"; path = "Target Support Files/Pods-quickfix_mobile/Pods-quickfix_mobile.debug.xcconfig"; sourceTree = "<group>"; };
 		5709B34CF0A7D63546082F79 /* Pods-quickfix_mobile.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-quickfix_mobile.release.xcconfig"; path = "Target Support Files/Pods-quickfix_mobile/Pods-quickfix_mobile.release.xcconfig"; sourceTree = "<group>"; };
+		57EC88DB29EC493D8AE926EB /* NotoNastaliqUrdu-VariableFont_wght.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "NotoNastaliqUrdu-VariableFont_wght.ttf"; path = "../src/assets/fonts/NotoNastaliqUrdu-VariableFont_wght.ttf"; sourceTree = "<group>"; };
 		5DCACB8F33CDC322A6C60F78 /* libPods-quickfix_mobile.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-quickfix_mobile.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = quickfix_mobile/AppDelegate.swift; sourceTree = "<group>"; };
+		78977536FDC04525B24B55F5 /* README.md */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = README.md; path = ../src/assets/fonts/README.md; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = quickfix_mobile/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
@@ -75,6 +81,7 @@
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
 				BBD78D7AC51CEA395F1C20DB /* Pods */,
+				9B88BC8DC5554ED0970EBEFB /* Resources */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -87,6 +94,17 @@
 				13B07F961A680F5B00A75B9A /* quickfix_mobile.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		9B88BC8DC5554ED0970EBEFB /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				0B3AF4F7F31B4B39BA058BD6 /* Inter-VariableFont_opsz,wght.ttf */,
+				57EC88DB29EC493D8AE926EB /* NotoNastaliqUrdu-VariableFont_wght.ttf */,
+				78977536FDC04525B24B55F5 /* README.md */,
+			);
+			name = Resources;
+			path = "";
 			sourceTree = "<group>";
 		};
 		BBD78D7AC51CEA395F1C20DB /* Pods */ = {
@@ -161,6 +179,9 @@
 				81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				2784DFB7C606EF09EAAF1562 /* PrivacyInfo.xcprivacy in Resources */,
+				1369665E64C547659A962DE0 /* Inter-VariableFont_opsz,wght.ttf in Resources */,
+				C5D89590B02441959BDDCF32 /* NotoNastaliqUrdu-VariableFont_wght.ttf in Resources */,
+				536B5C2E697D45E8A1958F36 /* README.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
