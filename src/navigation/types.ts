@@ -3,6 +3,7 @@ export type RootStackParams = {
   Register: undefined;
   UserTabs: undefined;
   ActiveBooking: { bookingId: string };
+  BookingSuccess: { booking: any };
   Feedback: { bookingId: string; providerId: string };
   Dispute: { bookingId: string };
 };
