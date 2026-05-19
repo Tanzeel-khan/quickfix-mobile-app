@@ -24,8 +24,30 @@ api.interceptors.request.use(async (config) => {
   if (creds) {
     config.headers.Authorization = `Bearer ${creds.password}`;
   }
+  
+  if (__DEV__) {
+    console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url}`, config.data || '');
+  }
   return config;
 });
+
+api.interceptors.response.use(
+  (response) => {
+    if (__DEV__) {
+      console.log(`[API Success] ${response.config.method?.toUpperCase()} ${response.config.url}:`, response.status, response.data);
+    }
+    return response;
+  },
+  (error) => {
+    if (__DEV__) {
+      console.log(
+        `[API Error] ${error.config?.method?.toUpperCase()} ${error.config?.url}:`,
+        error.response ? `${error.response.status} - ${JSON.stringify(error.response.data)}` : error.message
+      );
+    }
+    return Promise.reject(error);
+  }
+);
 
 // Map internal roman-ur → roman_ur for API
 function toApiLang(lang: Language | undefined): ApiLanguage {

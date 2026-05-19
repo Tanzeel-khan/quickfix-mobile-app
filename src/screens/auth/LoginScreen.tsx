@@ -27,6 +27,24 @@ type Nav = NativeStackNavigationProp<RootStackParams, 'Login'>;
 
 const DEMO = Config.DEMO_MODE === 'true';
 
+function decodeJwt(token: string): { bauserId?: number; role?: 'customer' | 'provider' } | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const padLen = (4 - (base64.length % 4)) % 4;
+    const padded = base64 + '='.repeat(padLen);
+    
+    const decoded = atob(padded);
+    return JSON.parse(decoded);
+  } catch (error) {
+    console.error('Failed to decode JWT token:', error);
+    return null;
+  }
+}
+
 export function LoginScreen() {
   const { t } = useTranslation();
   const navigation = useNavigation<Nav>();
@@ -50,9 +68,28 @@ export function LoginScreen() {
         return;
       }
       const { data } = await authApi.login(email, password);
-      await setAuth(data.token, data.user as User);
-    } catch {
-      Alert.alert(t('auth.error'), t('auth.loginFailed'));
+      console.log('Login Response Data:', data);
+      
+      const token = data?.data?.token || data?.token;
+      if (!token) {
+        throw new Error('Server did not return a valid authentication token.');
+      }
+      
+      // Decode JWT token to extract user details since the backend response doesn't provide a nested user object
+      const decoded = decodeJwt(token);
+      const user: User = {
+        id: decoded?.bauserId?.toString() || 'user-' + Date.now(),
+        email: email,
+        name: email.split('@')[0] || 'User',
+        role: decoded?.role || role,
+      };
+      
+      await setAuth(token, user);
+    } catch (err: any) {
+      console.error('Login error:', err);
+      const serverMessage = err?.response?.data?.message || err?.response?.data?.error;
+      const errorMessage = serverMessage || err?.message || t('auth.loginFailed');
+      Alert.alert(t('auth.error'), errorMessage);
     } finally {
       setLoading(false);
     }

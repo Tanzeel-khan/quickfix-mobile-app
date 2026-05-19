@@ -16,6 +16,10 @@ export const useAuthStore = create<AuthState>((set) => ({
   user: null,
 
   setAuth: async (token, user) => {
+    if (!token) {
+      console.error('setAuth called with null/undefined/empty token!');
+      throw new Error('Token is missing or invalid');
+    }
     await Keychain.setGenericPassword('quickfix_token', token);
     await AsyncStorage.setItem('quickfix_user', JSON.stringify(user));
     set({ token, user });
