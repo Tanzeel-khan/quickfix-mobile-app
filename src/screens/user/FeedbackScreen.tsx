@@ -118,7 +118,10 @@ export function FeedbackScreen({ route, navigation }: Props) {
       </ScrollView>
 
       <View style={styles.stickyFooter}>
-        <TouchableOpacity style={styles.reportBtn}>
+        <TouchableOpacity 
+          style={styles.reportBtn}
+          onPress={() => navigation.navigate('Dispute', { bookingId })}
+        >
           <Text style={styles.reportIcon}>🚩</Text>
           <Text style={styles.reportText}>Report issue</Text>
         </TouchableOpacity>
