@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
+import Config from 'react-native-config';
 import {
   View,
   Text,
@@ -25,6 +26,10 @@ import type {
   Candidate,
   Language,
 } from '../../types';
+import { ProviderRankCard } from '../../components/chat/ProviderRankCard';
+import { ReasoningPanel } from '../../components/chat/ReasoningPanel';
+import { PriceQuoteCard } from '../../components/chat/PriceQuoteCard';
+import { BookingConfirmCard } from '../../components/chat/BookingConfirmCard';
 import type { RootStackParams } from '../../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParams>;
@@ -35,7 +40,10 @@ type ChatMsg =
   | { id: string; type: 'typing' }
   | { id: string; type: 'intent_card'; requestId: string; intent: IntentData; candidates: Candidate[] }
   | { id: string; type: 'clarification_card'; requestId: string; data: ClarificationData }
-  | { id: string; type: 'providers_card'; requestId: string; candidates: Candidate[]; intent: IntentData };
+  | { id: string; type: 'providers_card'; requestId: string; candidates: Candidate[]; intent: IntentData }
+  | { id: string; type: 'reasoning_panel'; candidate: Candidate }
+  | { id: string; type: 'price_quote_card'; requestId: string; candidate: Candidate; intent: IntentData }
+  | { id: string; type: 'booking_confirm_card'; booking: any };
 
 const QUICK_CHIPS = ['AC not cooling', 'Water leak', 'Noise issue', 'Not starting'];
 
@@ -241,66 +249,6 @@ function ClarificationCard({
   );
 }
 
-// ── Providers Card (Screen 05) ────────────────────────
-function ProvidersCard({
-  requestId,
-  candidates,
-  intent,
-  onSelect,
-}: {
-  requestId: string;
-  candidates: Candidate[];
-  intent: IntentData;
-  onSelect: (requestId: string, candidate: Candidate, intent: IntentData) => void;
-}) {
-  return (
-    <View style={styles.card}>
-      <View style={[styles.badge, { backgroundColor: '#F3F4F6', marginBottom: 8 }]}>
-        <Text style={[styles.badgeText, { color: Colors.text }]}>✦ AGENT TRACE</Text>
-      </View>
-      <Text style={styles.cardTitle}>{candidates.length} matches found</Text>
-      <Text style={styles.cardSub}>Ranked by {candidates.length > 0 ? '8 factors' : '…'}</Text>
-
-      {candidates.map((c, i) => (
-        <View key={c.id} style={[styles.providerRow, i === 0 && styles.providerRowTop]}>
-          {i === 0 && (
-            <View style={styles.bestMatchBadge}>
-              <Text style={styles.bestMatchText}>BEST MATCH</Text>
-            </View>
-          )}
-          <View style={styles.providerAvatar}>
-            <Text style={styles.providerAvatarText}>{c.name[0]}</Text>
-          </View>
-          <View style={styles.providerInfo}>
-            <Text style={styles.providerName}>{c.name}</Text>
-            <Text style={styles.providerMeta}>
-              ★ {c.rating}  ·  {c.reviews} reviews
-            </Text>
-            {c.specialization && (
-              <Text style={styles.providerSpec}>{c.specialization}</Text>
-            )}
-            <View style={styles.providerStats}>
-              <Text style={styles.statItem}>{c.distanceKm} km</Text>
-              <Text style={styles.statItem}>{c.etaMin} min</Text>
-              <Text style={styles.statItem}>Rs. {c.priceEstimate.toLocaleString()}</Text>
-            </View>
-          </View>
-          <View style={styles.providerRight}>
-            <Text style={styles.matchScore}>{c.score}</Text>
-            <TouchableOpacity
-              style={i === 0 ? styles.selectBtn : styles.viewBtn}
-              onPress={() => onSelect(requestId, c, intent)}
-            >
-              <Text style={i === 0 ? styles.selectBtnText : styles.viewBtnText}>
-                {i === 0 ? 'Select' : 'View'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      ))}
-    </View>
-  );
-}
 
 // ── Main ChatScreen ───────────────────────────────────
 export function ChatScreen() {
@@ -313,6 +261,50 @@ export function ChatScreen() {
       id: '0',
       type: 'agent',
       text: `Hi ${user?.name ?? 'there'}! ${GREETING}`,
+    },
+    {
+      id: 'mock-1',
+      type: 'user',
+      text: 'AC theek karwana hai F-10 mein kal subah',
+    },
+    {
+      id: 'mock-2',
+      type: 'providers_card',
+      requestId: 'mock-req-123',
+      candidates: [
+        {
+          id: '1',
+          name: 'Ali Khan AC Services',
+          score: 92,
+          rating: 4.8,
+          reviews: 142,
+          distanceKm: 2.7,
+          etaMin: 24,
+          priceEstimate: 3200,
+          specialization: 'Inverter Specialist',
+          yearsExp: 8,
+        },
+        {
+          id: '2',
+          name: 'Bilal AC Repair',
+          score: 84,
+          rating: 4.6,
+          reviews: 85,
+          distanceKm: 2.3,
+          etaMin: 21,
+          priceEstimate: 3400,
+          specialization: 'Generalist',
+        },
+      ],
+      intent: {
+        service: 'AC repair',
+        location: 'F-10, Islamabad',
+        urgency: 'Normal',
+        confidence: 0.95,
+        fieldsExtracted: 4,
+        budget: { max: 4000, currency: 'PKR', priceSensitive: true },
+        when: { label: 'Tomorrow morning' },
+      },
     },
   ]);
   const [input, setInput] = useState('');
@@ -419,31 +411,79 @@ export function ChatScreen() {
   // ── Book provider ────────────────────────────────────
   const handleSelectProvider = useCallback(
     async (requestId: string, candidate: Candidate, intent: IntentData) => {
+      addMsg({
+        id: Date.now().toString(),
+        type: 'price_quote_card',
+        requestId,
+        candidate,
+        intent,
+      });
+    },
+    [addMsg],
+  );
+
+  // ── Final Booking ───────────────────────────────────
+  const handleFinalBook = useCallback(
+    async (requestId: string, candidate: Candidate, intent: IntentData) => {
       setProcessing(true);
       addMsg({ id: 'typing', type: 'typing' });
       try {
-        const { data } = await bookingsApi.create({
-          requestId,
-          providerId: candidate.id,
-          ...(intent.when?.start ? { scheduledAt: intent.when.start } : {}),
-        });
+        let bookingData;
+        const isDemo = Config.DEMO_MODE !== 'false'; // Default to demo if not explicitly false
+        
+        if (isDemo) {
+          // Simulated delay
+          await new Promise(resolve => setTimeout(() => resolve(null), 1200));
+          bookingData = {
+            id: 'BK-' + Math.floor(Math.random() * 10000),
+            status: 'confirmed',
+            provider: candidate,
+            scheduledAt: intent?.when?.label ?? 'Today',
+            totalPrice: candidate.priceEstimate || 3200,
+            address: intent?.location || 'F-10, Islamabad',
+            service: intent?.service || 'AC Repair',
+            whatsappPayload: {
+              target: candidate.name,
+              message: `Hi, a new booking has been confirmed for ${intent?.when?.label || 'tomorrow'}.`,
+            }
+          };
+        } else {
+          const { data } = await bookingsApi.create({
+            requestId,
+            providerId: candidate.id,
+            ...(intent.when?.start ? { scheduledAt: intent.when.start } : {}),
+          });
+          bookingData = data;
+        }
+
         setProcessing(false);
         setMessages((prev) => prev.filter((m) => m.type !== 'typing'));
-        addMsg({
-          id: Date.now().toString(),
-          type: 'agent',
-          text: `Booking confirmed! ${candidate.name} will arrive ${intent.when?.label ?? 'soon'}. Booking ID: ${data.id}`,
-        });
-        setTimeout(() => {
-          navigation.navigate('ActiveBooking', { bookingId: data.id });
-        }, 1200);
-      } catch {
+        navigation.navigate('BookingSuccess', { booking: bookingData });
+      } catch (err: any) {
+        console.error('[Booking Error]', err);
         setProcessing(false);
         setMessages((prev) => prev.filter((m) => m.type !== 'typing'));
-        addMsg({ id: Date.now().toString(), type: 'agent', text: 'Booking failed. Please try again.' });
+        const errorMessage = err?.message || 'Something went wrong';
+        addMsg({ 
+          id: Date.now().toString(), 
+          type: 'agent', 
+          text: `Booking failed: ${errorMessage}. (Using DEMO_MODE=${Config.DEMO_MODE})` 
+        });
       }
     },
-    [addMsg, navigation],
+    [addMsg],
+  );
+
+  // ── Show Reasoning ──────────────────────────────────
+  const handleShowReasoning = useCallback(
+    (candidate: Candidate) => {
+      addMsg({
+        id: Date.now().toString(),
+        type: 'reasoning_panel',
+        candidate,
+      });
+    },
+    [addMsg],
   );
 
   // ── Render message ───────────────────────────────────
@@ -475,11 +515,39 @@ export function ChatScreen() {
           );
         case 'providers_card':
           return (
-            <ProvidersCard
+            <ProviderRankCard
               requestId={item.requestId}
               candidates={item.candidates}
               intent={item.intent}
               onSelect={handleSelectProvider}
+              onShowReasoning={handleShowReasoning}
+            />
+          );
+        case 'reasoning_panel':
+          return (
+            <ReasoningPanel
+              candidate={item.candidate}
+              onContinue={(c) => {
+                // Find matching intent from msg history or state
+                const prev = messages.find(m => m.type === 'providers_card') as any;
+                if (prev) handleSelectProvider(prev.requestId, c, prev.intent);
+              }}
+              onClose={() => {}}
+            />
+          );
+        case 'price_quote_card':
+          return (
+            <PriceQuoteCard
+              candidate={item.candidate}
+              budgetCap={item.intent.budget.max}
+              onBook={() => handleFinalBook(item.requestId, item.candidate, item.intent)}
+            />
+          );
+        case 'booking_confirm_card':
+          return (
+            <BookingConfirmCard
+              booking={item.booking}
+              onTrack={() => navigation.navigate('ActiveBooking', { bookingId: item.booking.id })}
             />
           );
         default:

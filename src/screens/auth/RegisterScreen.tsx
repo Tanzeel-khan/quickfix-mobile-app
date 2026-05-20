@@ -51,8 +51,13 @@ export function RegisterScreen() {
         return;
       }
       const { data } = await authApi.register({ email, password, name, role });
-      await setAuth(data.token, data.user as User);
-    } catch {
+      const token = (data as any).data?.token ?? data.token;
+      const user = (data as any).data?.user ?? data.user ?? { id: '', email, name, role };
+      await setAuth(token, user as User);
+    } catch (err: any) {
+      console.error('REGISTER_ERROR', JSON.stringify(err?.response?.data ?? err?.message ?? err));
+      console.log("registrationerror", err);
+      
       Alert.alert(t('auth.error'), t('auth.registerFailed'));
     } finally {
       setLoading(false);
