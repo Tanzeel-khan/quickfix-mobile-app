@@ -72,6 +72,10 @@ export function LoginScreen() {
           <View style={styles.brandRow}>
             <View style={styles.brandDot} />
             <Text style={styles.brandLabel}>quickfix.</Text>
+            <View style={styles.flex1} />
+            <TouchableOpacity onPress={() => navigation.navigate('ProviderLogin')}>
+               <Text style={styles.partnerLink}>Partner Login ›</Text>
+            </TouchableOpacity>
           </View>
           <Text style={styles.displayHeading}>
             {'Service\nthat thinks\n'}
@@ -159,6 +163,14 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: Colors.background,
+  },
+  flex1: {
+    flex: 1,
+  },
+  partnerLink: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#D94027',
   },
   scroll: {
     flexGrow: 1,

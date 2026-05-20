@@ -7,6 +7,14 @@ export type RootStackParams = {
   AutoReschedule: { bookingId: string };
   Feedback: { bookingId: string; providerId: string };
   Dispute: { bookingId: string };
+  ProviderLogin: undefined;
+  ProviderTabs: undefined;
+  ProviderActiveJob: { bookingId: string };
+  ProviderComplete: { bookingId: string };
+  ProviderInsights: undefined;
+  ProviderReviews: undefined;
+  ProviderCancel: { bookingId: string };
+  ProviderDisputeResponse: { disputeId: string };
 };
 
 export type UserTabParams = {
