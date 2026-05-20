@@ -10,6 +10,7 @@ import { FeedbackScreen } from '../screens/user/FeedbackScreen';
 import { DisputeScreen } from '../screens/user/DisputeScreen';
 import { BookingSuccessScreen } from '../screens/user/BookingSuccessScreen';
 import { AutoRescheduleScreen } from '../screens/user/AutoRescheduleScreen';
+import { ProvidersScreen } from '../screens/user/ProvidersScreen';
 import type { RootStackParams } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParams>();
@@ -28,6 +29,7 @@ export function RootNavigator() {
             <Stack.Screen name="AutoReschedule" component={AutoRescheduleScreen} />
             <Stack.Screen name="Feedback" component={FeedbackScreen} />
             <Stack.Screen name="Dispute" component={DisputeScreen} />
+            <Stack.Screen name="Providers" component={ProvidersScreen} />
           </>
         ) : (
           <>

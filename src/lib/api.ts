@@ -4,7 +4,8 @@ import Config from 'react-native-config';
 import type {
   RegisterPayload,
   CreateBookingPayload,
-  ServiceRequest,
+  ApiRequestEnvelope,
+  ChatHistoryResponse,
   Booking,
   Notification,
   Language,
@@ -77,19 +78,17 @@ export const requestsApi = {
   create: (
     rawInput: string,
     language: Language,
-    location?: { sector?: string; city?: string },
   ) =>
-    api.post<ServiceRequest>('/requests', {
+    api.post<ApiRequestEnvelope>('/requests', {
       rawInput,
       language: toApiLang(language),
-      ...(location ? { location } : {}),
     }),
 
   clarify: (requestId: string, answers: Record<string, string>) =>
-    api.post<ServiceRequest>(`/requests/${requestId}/clarify`, { answers }),
+    api.post<ApiRequestEnvelope>(`/requests/${requestId}/clarify`, { answers }),
 
   getChat: (requestId: string) =>
-    api.get(`/requests/${requestId}/chat`),
+    api.get<ChatHistoryResponse>(`/requests/${requestId}/chat`),
 
   getReasoning: (requestId: string, providerUuid: string) =>
     api.get(`/requests/${requestId}/candidates/${providerUuid}/reasoning`),

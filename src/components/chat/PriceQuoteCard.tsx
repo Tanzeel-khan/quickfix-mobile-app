@@ -12,14 +12,14 @@ interface PriceLine {
 
 interface PriceQuoteCardProps {
   candidate: Candidate;
-  budgetCap: number;
+  budgetCap: number | null;
   onBook: () => void;
 }
 
 export function PriceQuoteCard({ candidate, budgetCap, onBook }: PriceQuoteCardProps) {
   const breakdown: PriceLine[] = [
     { label: 'Visit fee', detail: 'Diagnostic + first 30 min', amount: 1500 },
-    { label: 'Travel cost', detail: `${candidate.distanceKm}km x Rs. 50/km`, amount: 135 },
+    { label: 'Travel cost', detail: `${candidate.distance} x Rs. 50/km`, amount: 135 },
     { label: 'Service complexity', detail: 'Inverter unit - intermediate', amount: 1200 },
     { label: 'Urgency adjustment', detail: 'Next-morning slot < 12h', amount: 285 },
     { label: 'Loyalty discount', detail: 'Returning customer - 2%', amount: 60, isNegative: true },
@@ -37,19 +37,19 @@ export function PriceQuoteCard({ candidate, budgetCap, onBook }: PriceQuoteCardP
 
       <Text style={styles.priceAmount}>Rs. {total.toLocaleString()}</Text>
       <Text style={styles.budgetNote}>
-        Under your Rs. {budgetCap.toLocaleString()} cap. Final amount fixed after diagnostic.
+        {budgetCap ? `Under your Rs. ${budgetCap.toLocaleString()} cap. ` : ''}Final amount fixed after diagnostic.
       </Text>
 
       <View style={styles.providerMiniCard}>
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{candidate.name[0]}</Text>
+          <Text style={styles.avatarText}>{candidate.displayName[0]}</Text>
         </View>
         <View style={styles.providerInfo}>
-          <Text style={styles.providerName}>{candidate.name}</Text>
-          <Text style={styles.providerMeta}>Tomorrow · 10:00 AM · {candidate.distanceKm}km away</Text>
+          <Text style={styles.providerName}>{candidate.displayName}</Text>
+          <Text style={styles.providerMeta}>Tomorrow · 10:00 AM · {candidate.distance} away</Text>
         </View>
         <View style={styles.matchBadge}>
-          <Text style={styles.matchText}>{candidate.score} match</Text>
+          <Text style={styles.matchText}>{candidate.matchScore} match</Text>
         </View>
       </View>
 

@@ -37,7 +37,9 @@ function decodeJwt(token: string): { bauserId?: number; role?: 'customer' | 'pro
     const padLen = (4 - (base64.length % 4)) % 4;
     const padded = base64 + '='.repeat(padLen);
     
-    const decoded = atob(padded);
+    const decoded = decodeURIComponent(
+      padded.split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
+    );
     return JSON.parse(decoded);
   } catch (error) {
     console.error('Failed to decode JWT token:', error);
@@ -70,7 +72,7 @@ export function LoginScreen() {
       const { data } = await authApi.login(email, password);
       console.log('Login Response Data:', data);
       
-      const token = data?.data?.token || data?.token;
+      const token = (data as any)?.data?.token || data?.token;
       if (!token) {
         throw new Error('Server did not return a valid authentication token.');
       }

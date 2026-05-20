@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import Config from 'react-native-config';
 import {
   View,
@@ -8,25 +8,24 @@ import {
   FlatList,
   StyleSheet,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../store/authStore';
+import { useChatStore } from '../../store/chatStore';
 import { requestsApi, bookingsApi } from '../../lib/api';
 import { Colors, Spacing, Radius } from '../../theme';
 import type {
-  ServiceRequest,
+  ApiRequestEnvelope,
+  ApiClarification,
   IntentData,
-  ClarificationData,
   Candidate,
   Language,
 } from '../../types';
-import { ProviderRankCard } from '../../components/chat/ProviderRankCard';
 import { ReasoningPanel } from '../../components/chat/ReasoningPanel';
 import { PriceQuoteCard } from '../../components/chat/PriceQuoteCard';
 import { BookingConfirmCard } from '../../components/chat/BookingConfirmCard';
@@ -39,15 +38,15 @@ type ChatMsg =
   | { id: string; type: 'agent' | 'user'; text: string }
   | { id: string; type: 'typing' }
   | { id: string; type: 'intent_card'; requestId: string; intent: IntentData; candidates: Candidate[] }
-  | { id: string; type: 'clarification_card'; requestId: string; data: ClarificationData }
-  | { id: string; type: 'providers_card'; requestId: string; candidates: Candidate[]; intent: IntentData }
+  | { id: string; type: 'clarification_card'; requestId: string; clarifications: ApiClarification[] }
+  | { id: string; type: 'providers_found'; requestId: string; count: number; requestIdRef: string; candidatesRef: Candidate[]; intentRef: IntentData }
   | { id: string; type: 'reasoning_panel'; candidate: Candidate }
   | { id: string; type: 'price_quote_card'; requestId: string; candidate: Candidate; intent: IntentData }
   | { id: string; type: 'booking_confirm_card'; booking: any };
 
-const QUICK_CHIPS = ['AC not cooling', 'Water leak', 'Noise issue', 'Not starting'];
 
-const GREETING = "Hi! I'm Quickfix. What do you need fixed? You can type in any language — even mix them.";
+
+const GREETING = "I'm Quickfix. What do you need fixed? You can type in any language — even mix them.";
 
 // ── Sub-components ────────────────────────────────────
 
@@ -100,10 +99,11 @@ function IntentCard({
   onFindProviders: (requestId: string, candidates: Candidate[], intent: IntentData) => void;
 }) {
   const pct = Math.round(intent.confidence * 100);
+  const locationStr = [intent.location?.sector, intent.location?.city].filter(Boolean).join(', ') || '—';
   const fields = [
-    { icon: '🔧', label: 'SERVICE', value: intent.service, chip: intent.severity },
-    { icon: '📍', label: 'LOCATION', value: intent.location, chip: null },
-    { icon: '🕐', label: 'WHEN', value: intent.when?.label ?? '—', chip: null, note: intent.when?.start },
+    { icon: '🔧', label: 'SERVICE', value: intent.service?.label ?? '—', chip: intent.service?.severity ?? null },
+    { icon: '📍', label: 'LOCATION', value: locationStr, chip: null },
+    { icon: '🕐', label: 'WHEN', value: intent.when?.window ?? '—', chip: null, note: intent.when?.start ?? undefined },
     { icon: '💰', label: 'BUDGET', value: intent.budget?.max ? `Up to Rs. ${intent.budget.max.toLocaleString()}` : '—', chip: intent.budget?.priceSensitive ? 'price-sensitive' : null },
     { icon: '⚡', label: 'URGENCY', value: intent.urgency, chip: null },
   ];
@@ -117,10 +117,10 @@ function IntentCard({
       </View>
 
       {/* Confidence badge */}
-      <View style={[styles.badge, { backgroundColor: '#E8F5E9' }]}>
-        <Text style={[styles.badgeDot, { color: Colors.success }]}>●</Text>
-        <Text style={[styles.badgeText, { color: Colors.success }]}>
-          Confidence {pct}% · {intent.fieldsExtracted ?? fields.length} fields extracted
+      <View style={[styles.badge, styles.badgeSuccess]}>
+        <Text style={[styles.badgeDot, styles.badgeSuccessText]}>●</Text>
+        <Text style={[styles.badgeText, styles.badgeSuccessText]}>
+          Confidence {pct}% · {intent.extractedFields?.length ?? fields.length} fields extracted
         </Text>
       </View>
 
@@ -142,11 +142,11 @@ function IntentCard({
         </View>
       ))}
 
-      {/* Parsed from */}
-      {intent.parsedFrom && (
+      {/* Glosses (word-by-word translation from mixed-language input) */}
+      {intent.glosses && intent.glosses.length > 0 && (
         <View style={styles.parsedBox}>
           <Text style={styles.parsedLabel}>How I parsed this:</Text>
-          <Text style={styles.parsedText}>{intent.parsedFrom}</Text>
+          <Text style={styles.parsedText}>{intent.glosses.map(g => `${g.ur} → ${g.en}`).join('  ·  ')}</Text>
         </View>
       )}
 
@@ -166,85 +166,54 @@ function IntentCard({
   );
 }
 
-// ── Clarification Card (Screen 04) ───────────────────
+// ── Clarification Card ────────────────────────────────
 function ClarificationCard({
   requestId,
-  data,
+  clarifications,
   onSubmit,
 }: {
   requestId: string;
-  data: ClarificationData;
+  clarifications: ApiClarification[];
   onSubmit: (requestId: string, answers: Record<string, string>) => void;
 }) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
 
-  const pct = Math.round(data.confidence * 100);
+  const isComplete = clarifications.every((c) => (answers[c.id] ?? '').trim().length > 0);
+  const canSubmit = isComplete && !submitting;
 
   return (
     <View style={styles.card}>
-      {/* Header */}
-      <View style={[styles.badge, { backgroundColor: '#FFF8E1' }]}>
-        <Text style={[styles.badgeDot, { color: Colors.warning }]}>⚠</Text>
-        <Text style={[styles.badgeText, { color: '#856404' }]}>
-          Confidence {pct}% · {data.ambiguities} ambiguit{data.ambiguities === 1 ? 'y' : 'ies'}
-        </Text>
+      {/* Agent trace badge */}
+      <View style={styles.clarifyBadge}>
+        <Text style={styles.clarifyBadgeText}>✦ AGENT · NEEDS INFO</Text>
       </View>
 
-      <View style={[styles.badge, { backgroundColor: '#F3F4F6', marginTop: 8 }]}>
-        <Text style={[styles.badgeText, { color: Colors.text }]}>✦ AGENT · CLARIFY</Text>
-      </View>
-
-      <Text style={styles.clarifyQuestion}>{data.summary}</Text>
-
-      {data.questions.map((q) => (
-        <View key={q.key} style={styles.qBlock}>
-          <Text style={styles.qLabel}>{q.label}</Text>
-          {q.type === 'choice' && q.options ? (
-            <View style={styles.optionRow}>
-              {q.options.map((opt) => (
-                <TouchableOpacity
-                  key={opt}
-                  style={[
-                    styles.optionBtn,
-                    answers[q.key] === opt && styles.optionBtnActive,
-                  ]}
-                  onPress={() => setAnswers((a) => ({ ...a, [q.key]: opt }))}
-                >
-                  <Text
-                    style={[
-                      styles.optionText,
-                      answers[q.key] === opt && styles.optionTextActive,
-                    ]}
-                  >
-                    {opt}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          ) : (
-            <TextInput
-              style={styles.clarifyInput}
-              placeholder={q.placeholder ?? 'Type your answer…'}
-              placeholderTextColor={Colors.muted}
-              value={answers[q.key] ?? ''}
-              onChangeText={(v) => setAnswers((a) => ({ ...a, [q.key]: v }))}
-            />
-          )}
+      {clarifications.map((c, idx) => (
+        <View key={c.id} style={[styles.clarifyBlock, idx > 0 && styles.clarifyBlockBorder]}>
+          <Text style={styles.clarifyPrompt}>{c.prompt}</Text>
+          <TextInput
+            style={styles.clarifyInput}
+            placeholder="Type your answer…"
+            placeholderTextColor={Colors.muted}
+            value={answers[c.id] ?? ''}
+            onChangeText={(v) => setAnswers((a) => ({ ...a, [c.id]: v }))}
+            editable={!submitting}
+          />
         </View>
       ))}
 
       <TouchableOpacity
-        style={styles.primaryCardBtn}
-        onPress={() => onSubmit(requestId, answers)}
+        style={[styles.primaryCardBtn, !canSubmit && styles.primaryCardBtnDisabled]}
+        onPress={() => {
+          if (!canSubmit) return;
+          setSubmitting(true);
+          onSubmit(requestId, answers);
+        }}
+        disabled={!canSubmit}
       >
-        <Text style={styles.primaryCardBtnText}>Confirm and continue →</Text>
+        <Text style={styles.primaryCardBtnText}>{submitting ? 'Sending…' : 'Confirm →'}</Text>
       </TouchableOpacity>
-
-      {data.agentTrace && (
-        <View style={styles.traceBox}>
-          <Text style={styles.traceText}>{data.agentTrace}</Text>
-        </View>
-      )}
     </View>
   );
 }
@@ -255,61 +224,16 @@ export function ChatScreen() {
   const { t, i18n } = useTranslation();
   const navigation = useNavigation<Nav>();
   const user = useAuthStore((s) => s.user);
+  const chatStore = useChatStore();
+  const insets = useSafeAreaInsets();
+  const [sessionLoading, setSessionLoading] = useState(true);
 
-  const [messages, setMessages] = useState<ChatMsg[]>([
-    {
-      id: '0',
-      type: 'agent',
-      text: `Hi ${user?.name ?? 'there'}! ${GREETING}`,
-    },
-    {
-      id: 'mock-1',
-      type: 'user',
-      text: 'AC theek karwana hai F-10 mein kal subah',
-    },
-    {
-      id: 'mock-2',
-      type: 'providers_card',
-      requestId: 'mock-req-123',
-      candidates: [
-        {
-          id: '1',
-          name: 'Ali Khan AC Services',
-          score: 92,
-          rating: 4.8,
-          reviews: 142,
-          distanceKm: 2.7,
-          etaMin: 24,
-          priceEstimate: 3200,
-          specialization: 'Inverter Specialist',
-          yearsExp: 8,
-        },
-        {
-          id: '2',
-          name: 'Bilal AC Repair',
-          score: 84,
-          rating: 4.6,
-          reviews: 85,
-          distanceKm: 2.3,
-          etaMin: 21,
-          priceEstimate: 3400,
-          specialization: 'Generalist',
-        },
-      ],
-      intent: {
-        service: 'AC repair',
-        location: 'F-10, Islamabad',
-        urgency: 'Normal',
-        confidence: 0.95,
-        fieldsExtracted: 4,
-        budget: { max: 4000, currency: 'PKR', priceSensitive: true },
-        when: { label: 'Tomorrow morning' },
-      },
-    },
-  ]);
+  const greeting: ChatMsg = { id: '0', type: 'agent', text: `Hi! ${user?.name ?? 'there'} ${GREETING}` };
+  const [messages, setMessages] = useState<ChatMsg[]>([greeting]);
   const [input, setInput] = useState('');
   const [processing, setProcessing] = useState(false);
   const listRef = useRef<FlatList>(null);
+  const activeRequestId = useRef<string | null>(null);
 
   const currentLang = (i18n.language as Language) ?? 'en';
 
@@ -318,25 +242,81 @@ export function ChatScreen() {
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
   }, []);
 
+  // ── Auto-save session on every message change ────────
+  useEffect(() => {
+    if (!activeRequestId.current || sessionLoading) return;
+    const toSave = messages.filter((m) => m.type !== 'typing');
+    chatStore.save(activeRequestId.current, toSave);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages]);
+
+  // ── Restore session on mount ─────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    async function restoreSession() {
+      const { requestId, messages: saved } = await chatStore.restore();
+      if (cancelled) return;
+
+      if (requestId && saved && (saved as ChatMsg[]).length > 1) {
+        activeRequestId.current = requestId;
+        setMessages(saved as ChatMsg[]);
+        // Sync with server to pick up any state changes since last open
+        try {
+          const { data } = await requestsApi.getChat(requestId);
+          if (cancelled) return;
+          const lastMsg = (saved as ChatMsg[]).at(-1);
+          if (
+            (data.status === 'ready' || data.status === 'matched') &&
+            data.intent &&
+            lastMsg?.type !== 'intent_card' &&
+            lastMsg?.type !== 'providers_found' &&
+            lastMsg?.type !== 'price_quote_card'
+          ) {
+            setMessages((prev) => [
+              ...prev.filter((m) => m.type !== 'typing'),
+              { id: Date.now().toString(), type: 'intent_card', requestId, intent: data.intent!, candidates: data.candidates ?? [] },
+            ]);
+          } else if (
+            data.status === 'needs_clarification' &&
+            data.clarifications?.length &&
+            lastMsg?.type !== 'clarification_card'
+          ) {
+            setMessages((prev) => [
+              ...prev.filter((m) => m.type !== 'typing'),
+              { id: Date.now().toString(), type: 'clarification_card', requestId, clarifications: data.clarifications! },
+            ]);
+          }
+        } catch {
+          // Offline — work from local cache
+        }
+      }
+      setSessionLoading(false);
+    }
+    restoreSession();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ── Handle API response ─────────────────────────────
   const handleRequestResponse = useCallback(
-    (res: ServiceRequest) => {
+    (envelope: ApiRequestEnvelope) => {
       setProcessing(false);
-      // Remove typing indicator
       setMessages((prev) => prev.filter((m) => m.type !== 'typing'));
+      const res = envelope.data;
+      activeRequestId.current = res.requestId;
 
-      if (res.status === 'clarifying' && res.clarification) {
+      if (res.status === 'needs_clarification' && res.clarifications?.length) {
         addMsg({
           id: Date.now().toString(),
           type: 'clarification_card',
-          requestId: res.id,
-          data: res.clarification,
+          requestId: res.requestId,
+          clarifications: res.clarifications,
         });
-      } else if ((res.status === 'ready') && res.intent) {
+      } else if ((res.status === 'ready' || res.status === 'matched') && res.intent) {
         addMsg({
           id: Date.now().toString(),
           type: 'intent_card',
-          requestId: res.id,
+          requestId: res.requestId,
           intent: res.intent,
           candidates: res.candidates ?? [],
         });
@@ -373,23 +353,6 @@ export function ChatScreen() {
     [processing, currentLang, addMsg, handleRequestResponse],
   );
 
-  // ── Clarify ─────────────────────────────────────────
-  const handleClarify = useCallback(
-    async (requestId: string, answers: Record<string, string>) => {
-      setProcessing(true);
-      addMsg({ id: 'typing', type: 'typing' });
-      try {
-        const { data } = await requestsApi.clarify(requestId, answers);
-        handleRequestResponse(data);
-      } catch {
-        setProcessing(false);
-        setMessages((prev) => prev.filter((m) => m.type !== 'typing'));
-        addMsg({ id: Date.now().toString(), type: 'agent', text: 'Could not process your answers. Please try again.' });
-      }
-    },
-    [addMsg, handleRequestResponse],
-  );
-
   // ── Show providers ───────────────────────────────────
   const handleFindProviders = useCallback(
     (requestId: string, candidates: Candidate[], intent: IntentData) => {
@@ -399,27 +362,44 @@ export function ChatScreen() {
       }
       addMsg({
         id: Date.now().toString(),
-        type: 'providers_card',
+        type: 'providers_found',
         requestId,
-        candidates,
-        intent,
+        count: candidates.length,
+        requestIdRef: requestId,
+        candidatesRef: candidates,
+        intentRef: intent,
       });
+      navigation.navigate('Providers', { requestId, candidates, intent });
     },
-    [addMsg],
+    [addMsg, navigation],
   );
 
-  // ── Book provider ────────────────────────────────────
-  const handleSelectProvider = useCallback(
-    async (requestId: string, candidate: Candidate, intent: IntentData) => {
-      addMsg({
-        id: Date.now().toString(),
-        type: 'price_quote_card',
-        requestId,
-        candidate,
-        intent,
-      });
+  // ── Clarify ─────────────────────────────────────────
+  const handleClarify = useCallback(
+    async (requestId: string, answers: Record<string, string>) => {
+      setProcessing(true);
+      addMsg({ id: 'typing', type: 'typing' });
+      try {
+        const { data } = await requestsApi.clarify(requestId, answers);
+        const res = data.data;
+        setProcessing(false);
+        setMessages((prev) => prev.filter((m) => m.type !== 'typing'));
+        activeRequestId.current = res.requestId;
+
+        if ((res.status === 'ready' || res.status === 'matched') && res.intent && res.candidates?.length) {
+          handleFindProviders(res.requestId, res.candidates, res.intent);
+        } else if (res.status === 'needs_clarification' && res.clarifications?.length) {
+          addMsg({ id: Date.now().toString(), type: 'clarification_card', requestId: res.requestId, clarifications: res.clarifications });
+        } else {
+          addMsg({ id: Date.now().toString(), type: 'agent', text: "I've processed your request. Let me know if you'd like to continue." });
+        }
+      } catch {
+        setProcessing(false);
+        setMessages((prev) => prev.filter((m) => m.type !== 'typing'));
+        addMsg({ id: Date.now().toString(), type: 'agent', text: 'Could not process your answers. Please try again.' });
+      }
     },
-    [addMsg],
+    [addMsg, handleFindProviders],
   );
 
   // ── Final Booking ───────────────────────────────────
@@ -432,25 +412,25 @@ export function ChatScreen() {
         const isDemo = Config.DEMO_MODE !== 'false'; // Default to demo if not explicitly false
         
         if (isDemo) {
-          // Simulated delay
           await new Promise(resolve => setTimeout(() => resolve(null), 1200));
+          const demoLocation = [intent?.location?.sector, intent?.location?.city].filter(Boolean).join(', ');
           bookingData = {
             id: 'BK-' + Math.floor(Math.random() * 10000),
             status: 'confirmed',
             provider: candidate,
-            scheduledAt: intent?.when?.label ?? 'Today',
-            totalPrice: candidate.priceEstimate || 3200,
-            address: intent?.location || 'F-10, Islamabad',
-            service: intent?.service || 'AC Repair',
+            scheduledAt: intent?.when?.window ?? 'Today',
+            totalPrice: 3200,
+            address: demoLocation || 'Karachi',
+            service: intent?.service?.label || 'AC Repair',
             whatsappPayload: {
-              target: candidate.name,
-              message: `Hi, a new booking has been confirmed for ${intent?.when?.label || 'tomorrow'}.`,
+              target: candidate.displayName,
+              message: `Hi, a new booking has been confirmed for ${intent?.when?.window || 'tomorrow'}.`,
             }
           };
         } else {
           const { data } = await bookingsApi.create({
             requestId,
-            providerId: candidate.id,
+            providerId: candidate.providerId,
             ...(intent.when?.start ? { scheduledAt: intent.when.start } : {}),
           });
           bookingData = data;
@@ -458,6 +438,8 @@ export function ChatScreen() {
 
         setProcessing(false);
         setMessages((prev) => prev.filter((m) => m.type !== 'typing'));
+        await chatStore.clear();
+        activeRequestId.current = null;
         navigation.navigate('BookingSuccess', { booking: bookingData });
       } catch (err: any) {
         console.error('[Booking Error]', err);
@@ -471,19 +453,7 @@ export function ChatScreen() {
         });
       }
     },
-    [addMsg],
-  );
-
-  // ── Show Reasoning ──────────────────────────────────
-  const handleShowReasoning = useCallback(
-    (candidate: Candidate) => {
-      addMsg({
-        id: Date.now().toString(),
-        type: 'reasoning_panel',
-        candidate,
-      });
-    },
-    [addMsg],
+    [addMsg, chatStore, navigation, setMessages, setProcessing]
   );
 
   // ── Render message ───────────────────────────────────
@@ -509,28 +479,36 @@ export function ChatScreen() {
           return (
             <ClarificationCard
               requestId={item.requestId}
-              data={item.data}
+              clarifications={item.clarifications}
               onSubmit={handleClarify}
             />
           );
-        case 'providers_card':
+        case 'providers_found':
           return (
-            <ProviderRankCard
-              requestId={item.requestId}
-              candidates={item.candidates}
-              intent={item.intent}
-              onSelect={handleSelectProvider}
-              onShowReasoning={handleShowReasoning}
-            />
+            <View style={styles.agentRow}>
+              <View style={styles.agentAvatar}>
+                <Text style={styles.agentAvatarText}>Q</Text>
+              </View>
+              <View style={[styles.agentBubble, styles.providersFoundBubble]}>
+                <Text style={styles.agentText}>
+                  Found <Text style={styles.providersFoundCount}>{item.count} providers</Text> for your request!
+                </Text>
+                <TouchableOpacity
+                  style={styles.viewMatchesBtn}
+                  onPress={() => navigation.navigate('Providers', { requestId: item.requestIdRef, candidates: item.candidatesRef, intent: item.intentRef })}
+                >
+                  <Text style={styles.viewMatchesBtnText}>View matches →</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           );
         case 'reasoning_panel':
           return (
             <ReasoningPanel
               candidate={item.candidate}
-              onContinue={(c) => {
-                // Find matching intent from msg history or state
-                const prev = messages.find(m => m.type === 'providers_card') as any;
-                if (prev) handleSelectProvider(prev.requestId, c, prev.intent);
+              onContinue={(_c) => {
+                const prev = messages.find(m => m.type === 'providers_found') as any;
+                if (prev) navigation.navigate('Providers', { requestId: prev.requestIdRef, candidates: prev.candidatesRef, intent: prev.intentRef });
               }}
               onClose={() => {}}
             />
@@ -539,7 +517,7 @@ export function ChatScreen() {
           return (
             <PriceQuoteCard
               candidate={item.candidate}
-              budgetCap={item.intent.budget.max}
+              budgetCap={item.intent.budget?.max ?? null}
               onBook={() => handleFinalBook(item.requestId, item.candidate, item.intent)}
             />
           );
@@ -554,7 +532,7 @@ export function ChatScreen() {
           return null;
       }
     },
-    [handleFindProviders, handleClarify, handleSelectProvider],
+    [handleFindProviders, handleClarify, handleFinalBook, messages, navigation],
   );
 
   return (
@@ -563,15 +541,33 @@ export function ChatScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={88}
     >
+      {/* Safe-area top spacer */}
+      <View style={{ height: insets.top, backgroundColor: Colors.surface }} />
+
       {/* Header */}
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>New request</Text>
           <Text style={styles.headerSub}>Quickfix Agent · online</Text>
         </View>
-        <TouchableOpacity style={styles.globeBtn}>
-          <Text style={styles.globeIcon}>🌐</Text>
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          {activeRequestId.current && (
+            <TouchableOpacity
+              style={styles.newChatBtn}
+              onPress={async () => {
+                await chatStore.clear();
+                activeRequestId.current = null;
+                setMessages([greeting]);
+                setInput('');
+              }}
+            >
+              <Text style={styles.newChatBtnText}>+ New</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity style={styles.globeBtn}>
+            <Text style={styles.globeIcon}>🌐</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Message list */}
@@ -585,21 +581,6 @@ export function ChatScreen() {
         onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
       />
 
-      {/* Quick chips */}
-      {messages.length <= 1 && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.chipsScroll}
-          contentContainerStyle={styles.chips}
-        >
-          {QUICK_CHIPS.map((c) => (
-            <TouchableOpacity key={c} style={styles.chipBtn} onPress={() => send(c)}>
-              <Text style={styles.chipBtnText}>{c}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      )}
 
       {/* Input bar */}
       <View style={styles.inputBar}>
@@ -648,6 +629,15 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 16, fontWeight: '700', color: Colors.text },
   headerSub: { fontSize: 12, color: Colors.success, marginTop: 1 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  newChatBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+  },
+  newChatBtnText: { fontSize: 12, fontWeight: '700', color: Colors.primary },
   globeBtn: { padding: 6 },
   globeIcon: { fontSize: 20 },
 
@@ -721,6 +711,8 @@ const styles = StyleSheet.create({
   },
   badgeDot: { fontSize: 12 },
   badgeText: { fontSize: 12, fontWeight: '600' },
+  badgeSuccess: { backgroundColor: '#E8F5E9' },
+  badgeSuccessText: { color: Colors.success },
 
   // Intent card
   intentRow: {
@@ -778,38 +770,48 @@ const styles = StyleSheet.create({
   },
   primaryCardBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 
-  // Clarification
-  clarifyQuestion: { fontSize: 14, color: Colors.text, lineHeight: 21, marginBottom: 14 },
-  qBlock: { marginBottom: 14 },
-  qLabel: { fontSize: 12, color: Colors.muted, fontWeight: '600', marginBottom: 6 },
-  optionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  optionBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 999,
+  // Clarification card
+  clarifyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: Radius.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    alignSelf: 'flex-start',
+    marginBottom: 14,
+  },
+  clarifyBadgeText: { fontSize: 11, fontWeight: '800', color: Colors.muted, letterSpacing: 0.8 },
+  clarifyBlock: { marginBottom: 16 },
+  clarifyBlockBorder: { borderTopWidth: 1, borderTopColor: '#F0F0F0', paddingTop: 16 },
+  clarifyPrompt: { fontSize: 15, fontWeight: '600', color: Colors.text, lineHeight: 22, marginBottom: 12 },
+  clarifyOptions: { gap: 8 },
+  clarifyOptBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: Radius.sm,
     borderWidth: 1.5,
     borderColor: '#E0E0E0',
     backgroundColor: Colors.surface,
   },
-  optionBtnActive: { backgroundColor: Colors.text, borderColor: Colors.text },
-  optionText: { fontSize: 13, fontWeight: '600', color: Colors.text },
-  optionTextActive: { color: '#fff' },
+  clarifyOptBtnActive: { borderColor: Colors.primary, backgroundColor: Colors.primary + '12' },
+  clarifyOptBtnRecommended: { borderColor: Colors.primary + '60', backgroundColor: Colors.primary + '08' },
+  recommendedDot: { fontSize: 12, color: Colors.primary, marginRight: 2 },
+  clarifyOptText: { fontSize: 14, fontWeight: '500', color: Colors.text, flex: 1 },
+  clarifyOptTextActive: { color: Colors.primary, fontWeight: '700' },
   clarifyInput: {
     borderWidth: 1.5,
     borderColor: '#E0E0E0',
     borderRadius: Radius.sm,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
     fontSize: 14,
     color: Colors.text,
   },
-  traceBox: {
-    marginTop: 12,
-    backgroundColor: '#1E1E1E',
-    borderRadius: Radius.sm,
-    padding: 10,
-  },
-  traceText: { color: '#A0A0A0', fontSize: 11, fontFamily: 'monospace', lineHeight: 16 },
+  clarifyInputSpaced: { marginTop: 10 },
+  primaryCardBtnDisabled: { opacity: 0.4 },
 
   // Providers card
   providerRow: {
@@ -881,6 +883,55 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
   },
   chipBtnText: { fontSize: 13, color: Colors.text, fontWeight: '500' },
+
+  // Providers found bubble
+  providersFoundBubble: { gap: 8 },
+  providersFoundCount: { fontWeight: '700', color: Colors.primary },
+  viewMatchesBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: Radius.sm,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    alignSelf: 'flex-start',
+    marginTop: 4,
+  },
+  viewMatchesBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+
+  // Modal
+  modalOverlay: { flex: 1, justifyContent: 'flex-end' },
+  modalBackdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.4)' },
+  modalSheet: {
+    backgroundColor: Colors.background,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '85%',
+    paddingTop: 12,
+    paddingHorizontal: Spacing.md,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#D0D0D0',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: Colors.text },
+  modalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F0F0F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCloseBtnText: { fontSize: 14, color: Colors.text, fontWeight: '600' },
 
   // Input bar
   inputBar: {

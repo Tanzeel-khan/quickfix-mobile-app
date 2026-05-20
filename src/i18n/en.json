@@ -7,6 +7,8 @@
     "password": "Password",
     "fullName": "Full name",
     "phone": "Phone number (optional)",
+    "city": "City",
+    "sector": "Sector / Area",
     "login": "Log In",
     "register": "Create Account",
     "noAccount": "Don't have an account? Register",

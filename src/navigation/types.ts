@@ -7,6 +7,11 @@ export type RootStackParams = {
   AutoReschedule: { bookingId: string };
   Feedback: { bookingId: string; providerId: string };
   Dispute: { bookingId: string };
+  Providers: {
+    requestId: string;
+    candidates: import('../types').Candidate[];
+    intent: import('../types').IntentData;
+  };
 };
 
 export type UserTabParams = {

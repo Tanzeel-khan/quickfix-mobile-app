@@ -29,32 +29,31 @@ export interface RegisterPayload {
   password: string;
   name: string;
   role: 'customer' | 'provider';
+  city: string;
+  sector: string;
 }
 
 // ── Service Request (POST /requests response) ─────────
-export interface IntentWhen {
+export interface ExtractedField {
+  key: string;
   label: string;
-  start?: string;
-}
-
-export interface IntentBudget {
-  max: number;
-  currency: string;
-  priceSensitive?: boolean;
+  value: string;
+  icon: string;
 }
 
 export interface IntentData {
-  service: string;
-  severity?: string;
-  location: string;
-  when: IntentWhen;
-  budget: IntentBudget;
+  service: { category: string; label: string; severity: string };
+  location: { city?: string; sector?: string };
+  when: { start: string | null; end: string | null; window: string | null };
+  budget: { priceSensitive: boolean; currency: string | null; max: number | null };
   urgency: string;
   confidence: number;
-  fieldsExtracted: number;
-  parsedFrom?: string;
+  languageDetected?: string;
+  extractedFields?: ExtractedField[];
+  glosses?: Array<{ ur: string; en: string }>;
 }
 
+// ── Legacy clarification types (kept for reference) ──
 export interface ClarificationQuestion {
   key: string;
   label: string;
@@ -71,18 +70,57 @@ export interface ClarificationData {
   agentTrace?: string;
 }
 
-export interface Candidate {
+// ── Real API clarification types ──────────────────────
+export interface ApiClarificationOption {
+  value: string;
+  label: string;
+  recommended?: boolean;
+}
+
+export interface ApiClarification {
   id: string;
-  name: string;
-  score: number;
-  rating: number;
-  reviews: number;
-  distanceKm: number;
-  etaMin: number;
-  priceEstimate: number;
-  specialization?: string;
-  yearsExp?: number;
-  badge?: string;
+  prompt: string;
+  fieldTarget: string;
+  type: 'choice' | 'text';
+  options?: ApiClarificationOption[];
+}
+
+export interface ApiPartialIntent {
+  service?: { category: string; label: string; severity: string };
+  location?: { city?: string; sector?: string };
+  when?: { start: string | null; end: string | null; window: string | null };
+  budget?: { priceSensitive: boolean; currency: string | null; max: number | null };
+  urgency?: string;
+  confidence: number;
+  languageDetected?: string;
+  extractedFields?: ExtractedField[];
+}
+
+export interface ApiRequestData {
+  requestId: string;
+  traceId?: string;
+  status: 'needs_clarification' | 'ready' | 'matched' | 'pending';
+  partialIntent?: ApiPartialIntent;
+  clarifications?: ApiClarification[];
+  candidates?: Candidate[];
+  intent?: IntentData;
+}
+
+export interface ApiRequestEnvelope {
+  data: ApiRequestData;
+  message: string;
+  success: boolean;
+}
+
+export interface Candidate {
+  providerId: string;
+  displayName: string;
+  matchScore: number;
+  isBestMatch: boolean;
+  tag?: string;
+  distance: string;
+  eta: string;
+  priceEstimate: string;
 }
 
 export interface ServiceRequest {
@@ -159,4 +197,26 @@ export interface DisputePayload {
   reason_category: string;
   description: string;
   photo_url?: string;
+}
+
+// ── Chat history (GET /requests/:id/chat) ─────────────
+export interface ChatTurn {
+  role: 'user' | 'agent';
+  type?: string;
+  text?: string;
+  content?: string;
+  clarifications?: ApiClarification[];
+  intent?: IntentData;
+  candidates?: Candidate[];
+  answers?: Record<string, string>;
+  timestamp?: string;
+}
+
+export interface ChatHistoryResponse {
+  requestId: string;
+  status: string;
+  turns?: ChatTurn[];
+  intent?: IntentData;
+  candidates?: Candidate[];
+  clarifications?: ApiClarification[];
 }

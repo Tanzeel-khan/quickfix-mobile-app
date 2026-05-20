@@ -21,10 +21,10 @@ export function ReasoningPanel({ candidate, onContinue, onClose }: ReasoningPane
     { label: 'AC specialization match', detail: '"Inverter AC" in reviews x 3', score: 10 },
     { label: 'On-time score', detail: '96% over last 30 jobs', score: 12 },
     { label: 'Review recency (last 14d)', detail: '4 recent 5★ reviews', score: 6 },
-    { label: 'Distance / travel time', detail: `${candidate.distanceKm}km · ${candidate.etaMin}min`, score: 8 },
+    { label: 'Distance / travel time', detail: `${candidate.distance} · ${candidate.eta}`, score: 8 },
     { label: 'Capacity tomorrow morning', detail: '3 free slots in window', score: 5 },
     { label: 'Cancellation rate', detail: '1.2% (Low)', score: 4 },
-    { label: 'Budget fit (Rs. 4,000 cap)', detail: `Quote Rs. ${candidate.priceEstimate.toLocaleString()}`, score: 3 },
+    { label: 'Budget fit (Rs. 4,000 cap)', detail: `Quote ${candidate.priceEstimate}`, score: 3 },
     { label: 'Price per visit', detail: 'Slightly above peer median', score: -2 },
   ];
 
@@ -32,20 +32,20 @@ export function ReasoningPanel({ candidate, onContinue, onClose }: ReasoningPane
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{candidate.name[0]}</Text>
+          <Text style={styles.avatarText}>{candidate.displayName[0]}</Text>
         </View>
         <View style={styles.nameContainer}>
-          <Text style={styles.name}>{candidate.name}</Text>
-          <Text style={styles.subText}>Top 6 candidates</Text>
+          <Text style={styles.name}>{candidate.displayName}</Text>
+          <Text style={styles.subText}>Top candidates</Text>
         </View>
         <View style={styles.matchBadge}>
-          <Text style={styles.matchScore}>{candidate.score}</Text>
+          <Text style={styles.matchScore}>{candidate.matchScore}</Text>
           <Text style={styles.matchLabel}>MATCH</Text>
         </View>
       </View>
 
       <Text style={styles.summary}>
-        <Text style={styles.bold}>{candidate.name} is not the closest</Text> provider — Bilal is. I picked {candidate.name} because his <Text style={styles.bold}>AC-specialization signal</Text> and <Text style={styles.bold}>On-time score</Text> outweigh the 0.4 km of extra travel.
+        <Text style={styles.bold}>{candidate.displayName} is the best match</Text> based on specialization, on-time score, and distance from your location.
       </Text>
 
       <View style={styles.factorsSection}>
@@ -79,7 +79,7 @@ export function ReasoningPanel({ candidate, onContinue, onClose }: ReasoningPane
         onPress={() => onContinue(candidate)}
       >
         <Text style={styles.primaryBtnText}>
-          Continue with {candidate.name.split(' ')[0]} - Rs. {candidate.priceEstimate.toLocaleString()}
+          Continue with {candidate.displayName.split(' ')[0]} — {candidate.priceEstimate}
         </Text>
       </TouchableOpacity>
       

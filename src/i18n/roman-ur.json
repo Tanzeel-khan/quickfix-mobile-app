@@ -7,6 +7,8 @@
     "password": "Password",
     "fullName": "Pura naam",
     "phone": "Phone number (ikhtiyari)",
+    "city": "Shehar",
+    "sector": "Sector / Ilaqa",
     "login": "Login Karein",
     "register": "Account Banayein",
     "noAccount": "Account nahi? Register karein",

@@ -35,11 +35,13 @@ export function RegisterScreen() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [city, setCity] = useState('');
+  const [sector, setSector] = useState('');
   const [role, setRole] = useState<'customer' | 'provider'>('customer');
   const [loading, setLoading] = useState(false);
 
   const handleRegister = async () => {
-    if (!name || !email || !password) {
+    if (!name || !email || !password || !city || !sector) {
       Alert.alert(t('auth.error'), t('auth.fillAll'));
       return;
     }
@@ -50,7 +52,7 @@ export function RegisterScreen() {
         await setAuth(token, { ...user, name });
         return;
       }
-      const { data } = await authApi.register({ email, password, name, role });
+      const { data } = await authApi.register({ email, password, name, role, city, sector });
       const token = (data as any).data?.token ?? data.token;
       const user = (data as any).data?.user ?? data.user ?? { id: '', email, name, role };
       await setAuth(token, user as User);
@@ -117,6 +119,24 @@ export function RegisterScreen() {
             onChangeText={setPassword}
             secureTextEntry
           />
+          <View style={styles.rowInputs}>
+            <TextInput
+              style={[styles.input, styles.halfInput]}
+              placeholder={t('auth.city')}
+              placeholderTextColor={Colors.muted}
+              value={city}
+              onChangeText={setCity}
+              autoCapitalize="words"
+            />
+            <TextInput
+              style={[styles.input, styles.halfInput]}
+              placeholder={t('auth.sector')}
+              placeholderTextColor={Colors.muted}
+              value={sector}
+              onChangeText={setSector}
+              autoCapitalize="characters"
+            />
+          </View>
 
           <TouchableOpacity
             style={[styles.primaryBtn, loading && styles.primaryBtnDisabled]}
@@ -191,6 +211,8 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.latin.regular,
     fontSize: 15,
   },
+  rowInputs: { flexDirection: 'row', gap: Spacing.sm },
+  halfInput: { flex: 1 },
   primaryBtn: {
     backgroundColor: Colors.primary,
     borderRadius: Radius.sm,

@@ -24,7 +24,7 @@ export function ProviderRankCard({
       <View style={styles.agentTraceBadge}>
         <Text style={styles.agentTraceText}>✦ AGENT TRACE</Text>
         <Text style={styles.agentTraceDetail}>
-          Scanned 12 providers near G-13. Filtered to 6 with AC specialization. Ranked by 8 factors — distance was 3rd most weighted.
+          Scanned 12 providers near {intent.location.sector}. Filtered to 6 with AC specialization. Ranked by 8 factors — distance was 3rd most weighted.
         </Text>
       </View>
 
@@ -34,9 +34,9 @@ export function ProviderRankCard({
       </View>
 
       {candidates.map((candidate, index) => {
-        const isBestMatch = index === 0;
+        const isBestMatch = candidate.isBestMatch || index === 0;
         return (
-          <View key={candidate.id} style={[styles.providerContainer, !isBestMatch && styles.borderTop]}>
+          <View key={candidate.providerId} style={[styles.providerContainer, index > 0 && styles.borderTop]}>
             {isBestMatch && (
               <View style={styles.bestMatchBadge}>
                 <Text style={styles.bestMatchText}>BEST MATCH</Text>
@@ -45,39 +45,34 @@ export function ProviderRankCard({
 
             <View style={styles.providerHeader}>
               <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{candidate.name[0]}</Text>
+                <Text style={styles.avatarText}>{candidate.displayName[0]}</Text>
               </View>
               <View style={styles.providerMainInfo}>
-                <Text style={styles.providerName}>{candidate.name}</Text>
-                <View style={styles.ratingRow}>
-                  <Text style={styles.ratingText}>★ {candidate.rating}</Text>
-                  <Text style={styles.reviewText}>· {candidate.reviews} reviews</Text>
-                </View>
-                {candidate.specialization && (
+                <Text style={styles.providerName}>{candidate.displayName}</Text>
+                {candidate.tag && (
                   <View style={styles.tagRow}>
-                    <Text style={styles.tag}>{candidate.specialization.toUpperCase()}</Text>
-                    {candidate.yearsExp && <Text style={styles.tag}>{candidate.yearsExp} YRS</Text>}
+                    <Text style={styles.tag}>{candidate.tag.toUpperCase()}</Text>
                   </View>
                 )}
               </View>
               <View style={styles.scoreContainer}>
-                <Text style={styles.scoreLabel}>MATCH</Text>
-                <Text style={[styles.scoreValue, isBestMatch && styles.scoreBest]}>{candidate.score}</Text>
+                {!isBestMatch && <Text style={styles.scoreLabel}>MATCH</Text>}
+                <Text style={[styles.scoreValue, isBestMatch && styles.scoreBest]}>{candidate.matchScore}</Text>
               </View>
             </View>
 
             <View style={styles.statsRow}>
               <View style={styles.statItem}>
                 <Text style={styles.statLabel}>DISTANCE</Text>
-                <Text style={styles.statValue}>{candidate.distanceKm}km</Text>
+                <Text style={styles.statValue}>{candidate.distance}</Text>
               </View>
               <View style={styles.statItem}>
                 <Text style={styles.statLabel}>ETA</Text>
-                <Text style={styles.statValue}>{candidate.etaMin} min</Text>
+                <Text style={styles.statValue}>{candidate.eta}</Text>
               </View>
               <View style={styles.statItem}>
                 <Text style={styles.statLabel}>PRICE</Text>
-                <Text style={styles.statValue}>Rs. {candidate.priceEstimate.toLocaleString()}</Text>
+                <Text style={styles.statValue}>{candidate.priceEstimate}</Text>
               </View>
             </View>
 
@@ -158,7 +153,7 @@ const styles = StyleSheet.create({
   },
   bestMatchBadge: {
     position: 'absolute',
-    top: 12,
+    top: 6,
     right: 0,
     backgroundColor: '#FFEBEE',
     paddingHorizontal: 8,
@@ -238,6 +233,7 @@ const styles = StyleSheet.create({
     color: Colors.muted,
     letterSpacing: 0.5,
     marginBottom: 2,
+    marginTop: 10,
   },
   scoreValue: {
     fontSize: 22,
